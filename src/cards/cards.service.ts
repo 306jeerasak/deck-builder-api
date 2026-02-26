@@ -16,7 +16,8 @@ export class CardsService {
     return created.save();
   }
 
-  async findAll() {
-    return this.cardModel.find().sort({ createdAt: -1 }).exec();
-  }
+  async findAll(nation?: string) {
+  const q = nation ? { nation } : {};
+  return this.cardModel.find(q).sort({ createdAt: -1 }).exec();
+}
 }

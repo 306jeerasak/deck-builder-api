@@ -1,7 +1,14 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CardsService } from './cards.service';
 import { CreateCardDto } from './dto/create-card.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('cards')
 export class CardsController {
@@ -14,7 +21,7 @@ export class CardsController {
   }
 
   @Get()
-  findAll() {
-    return this.cardsService.findAll();
+  findAll(@Query('nation') nation?: string) {
+    return this.cardsService.findAll(nation);
   }
 }

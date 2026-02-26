@@ -9,6 +9,9 @@ export class Card extends Document {
   @Prop({ required: true })
   type: string;
 
+  @Prop({ required: true })
+  nation: string; // เช่น "Dark States"
+
   @Prop()
   clan: string;
 
