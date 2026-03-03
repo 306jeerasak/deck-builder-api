@@ -1,27 +1,26 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { CardsService } from './cards.service';
-import { CreateCardDto } from './dto/create-card.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { CardsService } from "./cards.service";
+import { CreateCardDto } from "./dto/create-card.dto";
 
-@Controller('cards')
+@Controller("cards")
+@UseGuards(AuthGuard("jwt"))
 export class CardsController {
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(private cards: CardsService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
   create(@Body() dto: CreateCardDto) {
-    return this.cardsService.create(dto);
+    return this.cards.create(dto);
+  }
+
+  // ✅ ใส่ทีละหลายใบ
+  @Post("bulk")
+  bulk(@Body() dtos: CreateCardDto[]) {
+    return this.cards.createMany(dtos);
   }
 
   @Get()
-  findAll(@Query('nation') nation?: string) {
-    return this.cardsService.findAll(nation);
+  findAll(@Query("nation") nation?: string) {
+    return this.cards.findAll(nation);
   }
 }

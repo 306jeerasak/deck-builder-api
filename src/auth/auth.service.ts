@@ -1,46 +1,29 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { UsersService } from '../users/users.service';
+import { Injectable, UnauthorizedException, BadRequestException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private users: UsersService, private jwt: JwtService) {}
 
   async signup(email: string, password: string) {
-    const existing = await this.usersService.findByEmail(email);
-    if (existing) throw new BadRequestException('Email already in use');
+    const existing = await this.users.findByEmail(email);
+    if (existing) throw new BadRequestException("Email already exists");
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await this.usersService.createUser(email, passwordHash);
-
-    return {
-      access_token: await this.jwtService.signAsync({
-        sub: (user as any)._id.toString(),
-        email: user.email,
-      }),
-    };
+    const user = await this.users.createUser(email, passwordHash);
+    return { _id: user._id, email: user.email };
   }
 
   async signin(email: string, password: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    const user = await this.users.findByEmail(email);
+    if (!user) throw new UnauthorizedException("Invalid credentials");
 
-    const ok = await bcrypt.compare(password, (user as any).passwordHash);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) throw new UnauthorizedException("Invalid credentials");
 
-    return {
-      access_token: await this.jwtService.signAsync({
-        sub: (user as any)._id.toString(),
-        email: (user as any).email,
-      }),
-    };
+    const payload = { sub: user._id.toString(), email: user.email };
+    return { access_token: await this.jwt.signAsync(payload) };
   }
 }

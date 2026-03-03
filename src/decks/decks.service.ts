@@ -1,53 +1,87 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Deck } from './entities/deck.entity';
+// ในไฟล์ decks.service.ts
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common"; // เพิ่ม BadRequestException
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Deck } from "./schemas/deck.schema";
 
 @Injectable()
 export class DecksService {
-  constructor(
-    @InjectModel(Deck.name)
-    private readonly deckModel: Model<Deck>,
-  ) {}
+  constructor(@InjectModel("Deck") private deckModel: Model<Deck>) {}
 
   async createDeck(name: string, userId: string) {
-    const deck = new this.deckModel({
+    const d = new this.deckModel({
       name,
       owner: new Types.ObjectId(userId),
       cards: [],
     });
-    return deck.save();
+    return d.save();
   }
 
-  async addCard(deckId: string, cardId: string, quantity: number) {
-    const deck = await this.deckModel.findById(deckId).exec();
-    if (!deck) throw new NotFoundException('Deck not found');
+  async getMyDecks(userId: string) {
+    return this.deckModel.find({ owner: new Types.ObjectId(userId) }).lean();
+  }
 
-    const cardObjectId = new Types.ObjectId(cardId);
+  async getDeckDetail(deckId: string, userId: string) {
+    const deck = await this.deckModel
+      .findOne({ 
+        _id: new Types.ObjectId(deckId), 
+        owner: new Types.ObjectId(userId) 
+      })
+      .lean();
 
-    const existing = (deck as any).cards.find(
-      (c: any) => c.cardId?.toString() === cardObjectId.toString(),
+    if (!deck) throw new NotFoundException("ไม่พบเด็คที่คุณต้องการ");
+    return deck;
+  }
+
+  async addCard(
+    deckId: string,
+    cardId: string,
+    quantity: number,
+    userId: string
+  ) {
+    console.log(`Updating Card: ${cardId} in Deck: ${deckId} (Adjustment: ${quantity})`);
+
+    const deck = await this.deckModel.findOne({
+      _id: new Types.ObjectId(deckId),
+      owner: new Types.ObjectId(userId),
+    });
+
+    if (!deck) {
+      throw new NotFoundException("ไม่พบเด็คของคุณ หรือคุณไม่มีสิทธิ์แก้ไขเด็คนี้");
+    }
+
+    // 1. ค้นหาการ์ดเดิมในเด็ค
+    const existingIndex = deck.cards.findIndex(
+      (c: any) => c.cardId.toString() === cardId.toString()
     );
 
-    if (existing) {
-      // ✅ จำกัดไม่เกิน 4 ใบ/การ์ด (ถ้าจะใช้ rule นี้)
-      if (existing.quantity + quantity > 4) {
-        throw new BadRequestException('A card cannot exceed 4 copies in a deck');
+    if (existingIndex > -1) {
+      // 2. ถ้ามีการ์ดอยู่แล้ว ให้บวกลบจำนวนตามที่ส่งมา
+      const newQuantity = deck.cards[existingIndex].quantity + quantity;
+
+      if (newQuantity > 4) {
+        throw new BadRequestException("ใส่การ์ดใบนี้ได้สูงสุด 4 ใบ");
       }
-      existing.quantity += quantity;
+
+      if (newQuantity <= 0) {
+        // 3. ถ้าลดจนเหลือ 0 ให้ลบการ์ดใบนั้นออกจากเด็คเลย
+        deck.cards.splice(existingIndex, 1);
+      } else {
+        deck.cards[existingIndex].quantity = newQuantity;
+      }
     } else {
-      if (quantity > 4) {
-        throw new BadRequestException('A card cannot exceed 4 copies in a deck');
+      // 4. ถ้ายังไม่มีการ์ด และต้องการเพิ่ม (quantity ต้องเป็นบวก)
+      if (quantity > 0) {
+        deck.cards.push({
+          cardId: new Types.ObjectId(cardId),
+          quantity: quantity,
+        });
       }
-      (deck as any).cards.push({ cardId: cardObjectId, quantity });
     }
 
-    // ✅ จำกัดเด็คไม่เกิน 50 ใบ
-    const total = (deck as any).cards.reduce((sum: number, c: any) => sum + c.quantity, 0);
-    if (total > 50) {
-      throw new BadRequestException('Deck cannot exceed 50 cards');
-    }
+    await deck.save();
 
-    return deck.save();
+    // คืนค่าเด็คที่อัปเดตแล้ว
+    return this.deckModel.findById(deckId).lean();
   }
 }

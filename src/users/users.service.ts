@@ -1,25 +1,17 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User } from './entities/user.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { User, UserDocument } from "./users.schema";
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectModel(User.name)
-    private readonly userModel: Model<User>,
-  ) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async createUser(email: string, passwordHash: string) {
-    const created = new this.userModel({ email, passwordHash });
-    return created.save();
+  findByEmail(email: string) {
+    return this.userModel.findOne({ email }).exec();
   }
 
-  async findByEmail(email: string) {
-    return this.userModel.findOne({ email: email.toLowerCase() }).exec();
-  }
-
-  async findById(id: string) {
-    return this.userModel.findById(id).exec();
+  createUser(email: string, passwordHash: string) {
+    return this.userModel.create({ email, passwordHash });
   }
 }
